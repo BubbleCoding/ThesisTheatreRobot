@@ -1,0 +1,556 @@
+# libraries
+import cv2
+import mediapipe as mp
+import time
+import keyboard
+import sys
+import math
+from pyfirmata import Arduino, SERVO
+
+# All needed arduino ports
+port = 'COM3'
+servoPinLeftTop = 4
+ServoPinLeftMid = 5
+servoPinLeftBot = 6
+servoPinLeftBotBot = 7
+servoPinRightTop = 8
+ServoPinRightMid = 9
+servoPinRightBot = 10
+servoPinRightBotBot = 11
+board = Arduino(port)
+# Declaration of what type of device the port are controlling
+board.digital[servoPinLeftTop].mode = SERVO
+board.digital[ServoPinLeftMid].mode = SERVO
+board.digital[servoPinLeftBot].mode = SERVO
+board.digital[servoPinLeftBotBot].mode = SERVO
+board.digital[servoPinRightTop].mode = SERVO
+board.digital[ServoPinRightMid].mode = SERVO
+board.digital[servoPinRightBot].mode = SERVO
+board.digital[servoPinRightBotBot].mode = SERVO
+
+# Start point for the mouth
+board.digital[servoPinLeftBot].write(90)
+board.digital[servoPinLeftBotBot].write(90)
+board.digital[servoPinRightBot].write(90)
+board.digital[servoPinRightBotBot].write(90)
+
+# Start point for the antenna
+board.digital[servoPinLeftTop].write(90)
+board.digital[ServoPinLeftMid].write(90)
+board.digital[servoPinRightTop].write(90)
+board.digital[ServoPinRightMid].write(90)
+
+# global variables
+previousAngle = 0
+mouthDistanceMinV = 35  # distance in pixels between upper and lower lip when mouth is closed.
+mouthDistanceMaxV = 105  # distance in pixels between upper and lower lip when mouth is fully open.
+mouthDistanceMinMax = 70  # mouthDistanceMaxV - mouthDistanceMinV
+antennaDirection = False
+antennaAngle = 90
+wood = False  # If this is true the impact of the user one the mouth is halved
+scale = False  # If this is true the impact of the user onm the mouth is changed to a square root function
+smoothValue = 3  # The minimal change in angle the mouth can make
+
+
+def rotateServo(angle, leftTop, rightTop, leftMid, rightMid, leftBot, rightBot, leftBotBot, rightBotBot):
+    # Update the servos of the robot
+
+    #  Antenna
+    board.digital[servoPinLeftTop].write(leftTop)
+    board.digital[servoPinRightTop].write(rightTop)
+    board.digital[ServoPinLeftMid].write(leftMid)
+    board.digital[ServoPinRightMid].write(rightMid)
+
+    # Mouth
+    board.digital[servoPinLeftBot].write(leftBot)
+    board.digital[servoPinLeftBotBot].write(leftBotBot)
+    board.digital[servoPinRightBot].write(rightBot)
+    board.digital[servoPinRightBotBot].write(rightBotBot)
+
+    time.sleep(0.001)
+    return angle
+
+
+def happyFace(angle, maxRotate):
+    global previousAngle
+    global antennaDirection
+    global antennaAngle
+
+    if abs(angle - previousAngle) < smoothValue: return  # if the change in angle is too small stop
+
+    # Change the range of the angle
+    angle = (((angle - mouthDistanceMinV) * (maxRotate - 0)) / (mouthDistanceMaxV - mouthDistanceMinV)) + 0
+    # Change the angle of the antenna every loop
+    if antennaDirection:
+        antennaAngle += 8
+    elif not antennaDirection:
+        antennaAngle -= 8
+    if antennaAngle >= 110 or antennaAngle <= 30:
+        antennaDirection = not antennaDirection
+
+    # Antenna angles
+    leftTop = antennaAngle
+    rightTop = antennaAngle
+    leftMid = antennaAngle
+    rightMid = antennaAngle
+
+    # Mouth angles
+    leftBot = 100
+    rightBot = 180 - 80
+    leftBotBot = 30 - angle
+    rightBotBot = 180 - 30 + angle
+
+    # Update
+    rotateServo(angle, leftTop, rightTop, leftMid, rightMid, leftBot, rightBot, leftBotBot, rightBotBot)
+    time.sleep(0.001)
+    previousAngle = angle
+
+
+def sadFace(angle, maxRotate):
+    global previousAngle
+
+    if abs(angle - previousAngle) < smoothValue: return  # if the change in angle is too small stop
+    # Change the range of the angle
+    angle = (((angle - mouthDistanceMinV) * (maxRotate - 0)) / (mouthDistanceMaxV - mouthDistanceMinV)) + 0
+    sadBaseline = 70
+
+    # Antenna angles
+    leftTop = 10
+    rightTop = 180 - 10
+    leftMid = sadBaseline
+    rightMid = 180 - sadBaseline
+
+    # Mouth angles
+    leftBot = sadBaseline
+    rightBot = 180 - sadBaseline
+    leftBotBot = sadBaseline - angle
+    rightBotBot = 180 - (sadBaseline - angle)
+
+    # Update
+    rotateServo(angle, leftTop, rightTop, leftMid, rightMid, leftBot, rightBot, leftBotBot, rightBotBot)
+    previousAngle = angle
+    time.sleep(0.001)
+
+
+def angryFace(angle, maxRotate):
+    global previousAngle
+    if abs(angle - previousAngle) < smoothValue: return  # if the change in angle is too small stop
+
+    # Change the range of the angle
+    angle = (((angle - mouthDistanceMinV) * (maxRotate - 0)) / (mouthDistanceMaxV - mouthDistanceMinV)) + 0
+
+    # Antenna angles
+    leftTop = 15
+    rightTop = 180 - 15
+    leftMid = 150
+    rightMid = 180 - 150
+
+    # Mouth angles
+    leftBot = 120
+    rightBot = 180 - 120
+    leftBotBot = 120 - angle
+    rightBotBot = 180 - (120 - angle)
+
+    # Update
+    rotateServo(angle, leftTop, rightTop, leftMid, rightMid, leftBot, rightBot, leftBotBot, rightBotBot)
+    time.sleep(0.001)
+    previousAngle = angle
+
+
+def surpriseFace(angle, maxRotate):
+    global previousAngle
+    global antennaDirection
+    global antennaAngle
+
+    if abs(angle - previousAngle) < smoothValue: return  # if the change in angle is too small stop
+
+    # Change the range of the angle
+    angle = (((angle - mouthDistanceMinV) * (maxRotate - 0)) / (mouthDistanceMaxV - mouthDistanceMinV)) + 0
+    # Change the angle of the antenna every loop
+    if antennaDirection:
+        antennaAngle += 5
+    elif not antennaDirection:
+        antennaAngle -= 5
+    if antennaAngle >= 110 or antennaAngle <= 80:
+        antennaDirection = not antennaDirection
+
+    # Antenna angles
+    leftTop = 90
+    rightTop = 90
+    leftMid = antennaAngle
+    rightMid = antennaAngle
+
+    # Mouth angles
+    leftBot = 160
+    rightBot = 180 - 160
+    leftBotBot = 20
+    rightBotBot = 180 - 20
+
+    # Update
+    rotateServo(angle, leftTop, rightTop, leftMid, rightMid, leftBot, rightBot, leftBotBot, rightBotBot)
+    time.sleep(0.001)
+    previousAngle = angle
+
+
+def huhFace(angle, maxRotate):
+    global previousAngle
+    global antennaDirection
+    global antennaAngle
+    if abs(angle - previousAngle) < smoothValue: return  # if the change in angle is too small stop
+
+    # Change the range of the angle
+    angle = (((angle - mouthDistanceMinV) * (maxRotate - 0)) / (mouthDistanceMaxV - mouthDistanceMinV)) + 0
+
+    # Antenna angles
+    leftTop = 45
+    rightTop = 45
+    leftMid = 45
+    rightMid = 130
+
+    # Mouth angles
+    leftBot = angle + 90
+    rightBot = 90 - angle
+    leftBotBot = 90 - angle
+    rightBotBot = 180 - (90 - angle)
+
+    # Update
+    rotateServo(angle, leftTop, rightTop, leftMid, rightMid, leftBot, rightBot, leftBotBot, rightBotBot)
+    time.sleep(0.001)
+    previousAngle = angle
+
+
+def yesFace(angle, maxRotate):
+    global previousAngle
+    global antennaDirection
+    global antennaAngle
+    if abs(angle - previousAngle) < smoothValue: return  # if the change in angle is too small stop
+
+    # Change the range of the angle
+    angle = (((angle - mouthDistanceMinV) * (maxRotate - 0)) / (mouthDistanceMaxV - mouthDistanceMinV)) + 0
+
+    # Change the angle of the antenna every loop
+    if antennaDirection:
+        antennaAngle += 8
+    elif not antennaDirection:
+        antennaAngle -= 8
+    if antennaAngle >= 80:
+        antennaAngle = 80
+        antennaDirection = False
+    elif antennaAngle <= 30:
+        antennaAngle = 30
+        antennaDirection = True
+
+    # Antenna angles
+    leftTop = 70
+    rightTop = 70
+    leftMid = 45
+    rightMid = 135
+
+    # Mouth angles
+    leftBot = antennaAngle
+    rightBot = 180 - antennaAngle
+    leftBotBot = antennaAngle
+    rightBotBot = 180 - antennaAngle
+
+    # Update
+    rotateServo(angle, leftTop, rightTop, leftMid, rightMid, leftBot, rightBot, leftBotBot, rightBotBot)
+    time.sleep(0.001)
+    previousAngle = angle
+
+
+def noFace(angle, maxRotate):
+    global previousAngle
+    global antennaDirection
+    global antennaAngle
+    if abs(angle - previousAngle) < smoothValue: return  # if the change in angle is too small stop
+
+    # Change the range of the angle
+    angle = (((angle - mouthDistanceMinV) * (maxRotate - 0)) / (mouthDistanceMaxV - mouthDistanceMinV)) + 0
+
+    # Change the angle of the antenna every loop
+    if antennaDirection:
+        antennaAngle += 3
+    elif not antennaDirection:
+        antennaAngle -= 3
+    if antennaAngle >= 80:
+        antennaAngle = 80
+        antennaDirection = False
+    elif antennaAngle <= 30:
+        antennaAngle = 30
+        antennaDirection = True
+
+    # Antenna angles
+    leftTop = antennaAngle
+    rightTop = 180 - antennaAngle
+    leftMid = 45
+    rightMid = 135
+
+    # Mouth angles
+    leftBot = 110
+    rightBot = 180 - 110
+    leftBotBot = 110 - angle
+    rightBotBot = 180 - (110 - angle)
+
+    # Update
+    rotateServo(angle, leftTop, rightTop, leftMid, rightMid, leftBot, rightBot, leftBotBot, rightBotBot)
+    time.sleep(0.001)
+    previousAngle = angle
+
+
+def freeFace(angle, maxRotate):
+    global previousAngle
+    global mouthDistanceMaxV
+    global mouthDistanceMinV
+    if abs(angle - previousAngle) < smoothValue: return # if the change in angle is too small stop
+
+    # Change the range of the angle
+    angle = translate(angle, mouthDistanceMinV, mouthDistanceMaxV, 0, maxRotate)
+    if angle > maxRotate:
+        angle = maxRotate
+
+    # Antenna angles
+    leftTop = 45 + angle / 3
+    rightTop = 135 - angle / 3
+    leftMid = 90
+    rightMid = 90
+
+    # Mouth angles
+    leftBot = angle + 90
+    rightBot = 90 - angle
+    leftBotBot = 90 - angle
+    rightBotBot = 180 - (90 - angle)
+
+    # Update
+    rotateServo(angle, leftTop, rightTop, leftMid, rightMid, leftBot, rightBot, leftBotBot, rightBotBot)
+    time.sleep(0.001)
+    previousAngle = angle
+
+
+def hoiFace(angle, maxRotate):
+    global previousAngle
+    global antennaDirection
+    global antennaAngle
+    if abs(angle - previousAngle) < smoothValue: return  # if the change in angle is too small stop
+
+    # Change the range of the angle
+    angle = (((angle - mouthDistanceMinV) * (maxRotate - 0)) / (mouthDistanceMaxV - mouthDistanceMinV)) + 0
+
+    # Change the angle of the antenna every loop
+    if antennaDirection:
+        antennaAngle += 3
+    elif not antennaDirection:
+        antennaAngle -= 3
+    if antennaAngle >= 80:
+        antennaAngle = 80
+        antennaDirection = False
+    elif antennaAngle <= 30:
+        antennaAngle = 30
+        antennaDirection = True
+
+    # Antenna angles
+    leftTop = antennaAngle
+    rightTop = 180 - antennaAngle
+    leftMid = 45
+    rightMid = 135
+
+    # Mouth angles
+    leftBot = angle + 90
+    rightBot = 90 - angle
+    leftBotBot = 90 - angle
+    rightBotBot = 180 - (90 - angle)
+
+    # Update
+    rotateServo(angle, leftTop, rightTop, leftMid, rightMid, leftBot, rightBot, leftBotBot, rightBotBot)
+    time.sleep(0.001)
+    previousAngle = angle
+
+
+def mouthDistanceMin(distance):
+    # This function update the minimal distance between the lips
+    global mouthDistanceMinV
+    global mouthDistanceMaxV
+    global mouthDistanceMinMax
+    mouthDistanceMinV = distance
+    mouthDistanceMinMax = mouthDistanceMaxV - mouthDistanceMinV
+
+
+def translate(value, leftMin, leftMax, rightMin, rightMax):
+    # This function does a host of different translations on the angles of the mouth
+    # Figure out how 'wide' each range is
+    returnValue = 0
+    if wood:
+        rightMin = rightMin * 2
+        rightMax = rightMax / 2
+    leftSpan = leftMax - leftMin
+    rightSpan = rightMax - rightMin
+
+    # Convert the left range into a 0-1 range (float)
+    valueScaled = float(value - leftMin) / float(leftSpan)
+
+    # Convert the 0-1 range into a value in the right range.
+    returnValue = rightMin + (valueScaled * rightSpan)
+    if scale and returnValue > 1:
+        # print(returnValue)
+        returnValue = math.sqrt(mouthDistanceMinMax) * math.sqrt(returnValue)
+    return returnValue
+
+
+def mouthDistanceMax(distance):
+    # This function update the maximal distance between the lips
+    global mouthDistanceMaxV
+    global mouthDistanceMaxV
+    global mouthDistanceMinMax
+    mouthDistanceMaxV = distance
+    mouthDistanceMinMax = mouthDistanceMaxV - mouthDistanceMinV
+
+
+def work():
+    # This function can be called to set all the servos to the given values and then stop the program
+    leftTop = 0
+    rightTop = 0
+    leftMid = 0
+    rightMid = 0
+
+    leftBot = 90
+    rightBot = 90
+    leftBotBot = 90
+    rightBotBot = 90
+
+    rotateServo(90, leftTop, rightTop, leftMid, rightMid, leftBot, rightBot, leftBotBot, rightBotBot)
+    sys.exit(0)
+
+
+def smoothValueChange():
+    # changes the smooth value if scale is turned on
+    global smoothValue
+    value = int(round(mouthDistanceMinMax / 23))
+    if scale:
+        smoothValue = int(round(value * 1.6))
+    else:
+        smoothValue = value
+
+
+def control(angle):
+    # This function gives the keyboard options to call functions
+    global wood
+    global scale
+    global smoothValue
+
+    if keyboard.is_pressed('q'):
+        happyFace(angle, 30)
+        return
+    if keyboard.is_pressed('w'):
+        sadFace(angle, 60)
+        return
+    if keyboard.is_pressed('e'):
+        angryFace(angle, 60)
+        return
+    if keyboard.is_pressed('r'):
+        surpriseFace(angle, 20)
+        return
+    if keyboard.is_pressed('t'):
+        huhFace(angle, 60)
+        return
+    if keyboard.is_pressed('y'):
+        yesFace(angle, 20)
+        return
+    if keyboard.is_pressed('u'):
+        noFace(angle, 50)
+        return
+    if keyboard.is_pressed('i'):
+        hoiFace(angle, 50)
+        return
+
+    if keyboard.is_pressed('1'):
+        wood = not wood
+        print('wood is ', wood)
+        time.sleep(.5)
+        return
+    if keyboard.is_pressed('2'):
+        scale = not scale
+        smoothValueChange()
+        print('scale is ', scale)
+        time.sleep(.5)
+        return
+    if keyboard.is_pressed('9'):
+        work()
+
+    if keyboard.is_pressed('z'):
+        mouthDistanceMin(angle)
+        return
+    if keyboard.is_pressed('x'):
+        mouthDistanceMax(angle)
+        return
+
+    if keyboard.is_pressed('esc'):
+        sys.exit(0)
+    freeFace(angle, 80)
+
+
+class FaceMeshDetector():
+    #  This is the facial recognition code. It has been adopted from https://www.youtube.com/watch?v=01sAkU_NvOY
+    def __init__(self, staticMode=False, maxFaces=2, minDetectionCon=0.5, minTackCon=0.5):
+
+        self.staticMode = staticMode
+        self.maxFaces = maxFaces
+        self.minDetectionCon = minDetectionCon
+        self.minTackCon = minTackCon
+
+        self.mpDraw = mp.solutions.drawing_utils
+        self.mpFaceMesh = mp.solutions.face_mesh
+        self.faceMesh = self.mpFaceMesh.FaceMesh(self.staticMode, self.maxFaces, self.minDetectionCon, self.minTackCon)
+        self.drawSpec = self.mpDraw.DrawingSpec(thickness=1, circle_radius=1)
+
+    def findFaceMesh(self, img, draw=True):
+
+        self.imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        self.results = self.faceMesh.process(self.imgRGB)
+        self.distance = 0
+
+        # faces = []
+        if self.results.multi_face_landmarks:
+            for faceLms in self.results.multi_face_landmarks:
+                # self.mpDraw.draw_landmarks(img, faceLms, self.mpFaceMesh.FACE_CONNECTIONS, self.drawSpec, self.drawSpec)
+                face = []
+                for id, lm in enumerate(faceLms.landmark):
+                    if id is 0 or id is 17:
+                        ih, iw, ic = img.shape
+                        x, y = int(lm.x * iw), int(lm.y * ih)
+                        # cv2.putText(img, str(id), (x, y), cv2.FONT_HERSHEY_PLAIN, .8, (0, 255, 0), 1)
+                        if id is 0:
+                            self.distance = self.distance + y
+                        if id is 17:
+                            self.distance = y - self.distance
+                            # print(self.distance)
+                            control(self.distance)
+                            break
+                            # happyFace()
+                    else:
+                        continue
+                    # print(id,x,y)
+                    face.append([id, x, y])
+                # faces.append(face)
+            return img, face
+
+
+def main():
+    cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+    pTime = 0
+    detector = FaceMeshDetector(maxFaces=2)
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+
+    while True:
+        success, img = cap.read()
+        img, face = detector.findFaceMesh(img)
+        cTime = time.time()
+        fps = 1 / (cTime - pTime)
+        pTime = cTime
+        cv2.putText(img, f'FPS: {int(fps)}', (20, 70), cv2.FONT_HERSHEY_PLAIN, 3, (0, 255, 0), 3)
+        cv2.imshow("image", img)
+        cv2.waitKey(1)
+
+
+if __name__ == '__main__':
+    main()
